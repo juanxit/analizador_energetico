@@ -147,7 +147,7 @@ if st.session_state.dispositivos:
     with col_m2:
         st.metric(label="💰 Costo Total Estimado en Factura", value=f"{total_dinero:,.0f} COP")
     
-    st.write("### 🧠 Diagnóstico del Profesor e Indicadores de Eficiencia")
+    st.write("### 🧠 Diagnóstico e Indicadores de Eficiencia")
     
     ranking = df.sort_values(by="Consumo Mensual (kWh)", ascending=False)
     
@@ -170,7 +170,7 @@ if st.session_state.dispositivos:
         # Alertas Basadas en Potencia
         if "nevera" in nombre or "nevecon" in nombre:
             if watts_etiqueta > 350.0:
-                st.error(f"❄️ **{info_aparato}:** La potencia de etiqueta ({watts_etiqueta} W) es alta para estándares modernos. Se recomienda verificar tecnología Inverter.")
+                st.error(f"❄️ **{info_aparato}:** La potencia de etiqueta ({watts_etiqueta} W) es alta para estándares modernos. Se recomienda verificar tecnología Inverter, reemplazar el dispositivo o no abrir seguida la puerta ya que puede incrementar el gasto eléctrico mensual entre un 10 % y un 20 %.")
             else:
                 st.success(f"❄️ **{info_aparato}:** Potencia nominal balanceada de {watts_etiqueta} W.")
                 
@@ -191,7 +191,7 @@ if st.session_state.dispositivos:
 
         elif "secador" in nombre or "plancha" in nombre:
             if watts_etiqueta > 1200.0:
-                st.warning(f"💇 **{info_aparato}:** Alta demanda instantánea ({watts_etiqueta} W). Evita encenderlo junto a otros equipos de cocina.")
+                st.warning(f"💇 **{info_aparato}:** Alta demanda instantánea ({watts_etiqueta} W). Evita utilizarlo a la maxima temperatura.")
 
         elif "lampara" in nombre or "led" in nombre or "bombill" in nombre:
             if watts_etiqueta > 25.0:
@@ -201,13 +201,13 @@ if st.session_state.dispositivos:
 
         elif "computador" in nombre or "portátil" in nombre or "portatil" in nombre:
             if watts_etiqueta > 250.0:
-                st.warning(f"💻 **{info_aparato}:** Fuente de {watts_etiqueta} W corresponde a un equipo Gaming o pesado. Configure perfiles de ahorro.")
+                st.warning(f"💻 **{info_aparato}:** Fuente de {watts_etiqueta} W corresponde a un equipo Gaming o pesado. Configure perfiles de ahorro y reduccion del tiempo de uso.")
             else:
                 st.success(f"💻 **{info_aparato}:** Potencia de operación estándar ({watts_etiqueta} W).")
 
         elif "lavadora" in nombre:
             if watts_etiqueta > 500.0:
-                st.error(f"🧺 **{info_aparato}:** Los {watts_etiqueta} W indican alto esfuerzo o uso de agua caliente. Lava con agua fría.")
+                st.error(f"🧺 **{info_aparato}:** Los {watts_etiqueta} W indican alto esfuerzo o uso de agua caliente. Lava con agua fría, y trata de hacer una sola lavada grande")
             else:
                 st.success(f"🧺 **{info_aparato}:** Consumo del motor dentro del estándar verde.")
         else:
