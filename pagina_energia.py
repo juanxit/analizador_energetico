@@ -365,7 +365,7 @@ else:
 
 # --- SECCIÓN DE RECOMENDACIONES GENERALES ---
 st.write("---")
-st.write("### 📌 Conceptos Clave de Ingeniería Eléctrica Explicados")
+st.write("### 📌 Conceptos Clave Explicados")
 col_g1, col_g2 = st.columns(2)
 
 with col_g1:
