@@ -65,7 +65,6 @@ with col1:
         marca = marca_seleccionada
     
 with col2:
-    # Solicitud estricta de la potencia de etiqueta requerida por el profesor
     potencia_marcada = st.number_input(
         "Potencia de la Etiqueta (Watts)",
         min_value=0.0,
@@ -95,24 +94,24 @@ with col3:
     
     enviado = st.button("➕ Calcular mediante Watts")
 
-# --- LÓGICA DE INGENIERÍA ELÉCTRICA (POTENCIA NOMINAL Y FACTOR DE UTILIZACIÓN) ---
+# --- LÓGICA DE INGENIERÍA ELÉCTRICA ---
 if enviado and dispositivo:
     if potencia_marcada > 0 and uso_mes > 0:
         
-        # FACTOR DE UTILIZACIÓN MODERADO (Evita que la nevera o TV simulen un consumo falso del 100% todo el tiempo)
         nombre_min = dispositivo.lower()
-        factor_utilizacion = 1.0  # Por defecto consumen lo que dice la etiqueta (planchas, resistencias, bombillos)
+        factor_utilizacion = 1.0  # Por defecto cargas resistivas/iluminación puras
         
         if "nevera" in nombre_min or "nevecon" in nombre_min:
-            factor_utilizacion = 0.40  # Una nevera real solo tiene el compresor activo el 40% del tiempo conectado
+            factor_utilizacion = 0.40  
         elif "televisor" in nombre_min or "tv" in nombre_min:
-            factor_utilizacion = 0.70  # Los televisores rara vez operan al brillo máximo de etiqueta
-        elif "computador" in nombre_min or "portátil" in pointer_min if "portátil" in nombre_min or "portatil" in nombre_min:
-            factor_utilizacion = 0.60  # Consumo variable según el procesamiento
+            factor_utilizacion = 0.70  
+        # --- CORRECCIÓN AQUÍ: Se eliminó 'pointer_min' y se limpió la sintaxis ---
+        elif "computador" in nombre_min or "portátil" in nombre_min or "portatil" in nombre_min:
+            factor_utilizacion = 0.60  
         elif "cargador" in nombre_min:
-            factor_utilizacion = 0.25  # Un cargador conectado sin celular consume casi 0 (consumo vampiro)
+            factor_utilizacion = 0.25  
 
-        # Fórmula Física Fundamental: Energía (kWh) = (Potencia(W) / 1000) * Horas * Cantidad * Factor
+        # Fórmula Física Fundamental
         consumo_mensual_kwh = (potencia_marcada / 1000.0) * uso_mes * cantidad * factor_utilizacion
         costo_mensual_cop = consumo_mensual_kwh * PRECIO_KWH_COP
         
@@ -128,7 +127,7 @@ if enviado and dispositivo:
             "Costo Mensual (COP)": round(costo_mensual_cop, 0)
         })
         st.success(f"¡{dispositivo} calculado teóricamente y agregado al inventario!")
-        st.rerun()
+        # Se removió st.rerun() para permitir la visualización del st.success
     else:
         st.warning("Por favor, introduzca una potencia en Watts y horas de uso mayores a cero.")
 
@@ -158,8 +157,6 @@ if st.session_state.dispositivos:
     for _, fila in ranking.iterrows():
         nombre = fila["Dispositivo"].lower()
         kwh_calculado = fila["Consumo Mensual (kWh)"]
-        costo_calculado = fila["Costo Mensual (COP)"]
-        horas_digitadas = fila["Horas/Mes"]
         watts_etiqueta = fila["Potencia Etiqueta (W)"]
         ubicacion = fila["Zona"]
         info_aparato = f"**{fila['Dispositivo']} ({fila['Marca']})** en **{ubicacion}**"
@@ -174,75 +171,50 @@ if st.session_state.dispositivos:
             continue
 
         # 2. ALERTAS BASADAS EN POTENCIA (W)
-        
-        # Neveras, Nevecones y Refrigeradores
         if "nevera" in nombre or "nevecon" in nombre:
             if watts_etiqueta > 350.0:
-                st.error(
-                    f"❄️ **{info_aparato}:** La potencia de etiqueta ({watts_etiqueta} W) es alta para estándares modernos de eficiencia. "
-                    f"Aunque el motor se apaga intermitentemente, cuando arranca exige un pico alto de corriente. "
-                    f"Se recomienda verificar si cuenta con tecnología Inverter."
-                )
+                st.error(f"❄️ **{info_aparato}:** La potencia de etiqueta ({watts_etiqueta} W) es alta para estándares modernos. Se recomienda verificar tecnología Inverter.")
             else:
-                st.success(f"❄️ **{info_aparato}:** Potencia nominal balanceada de {watts_etiqueta} W. Buen comportamiento de la carga inductiva.")
+                st.success(f"❄️ **{info_aparato}:** Potencia nominal balanceada de {watts_etiqueta} W.")
                 
-        # Routers, Internet y Módems
         elif "internet" in nombre or "router" in nombre or "modem" in nombre:
             if watts_etiqueta > 30.0:
-                st.warning(f"🌐 **{info_aparato}:** Un módem no debería superar los 15-20 Watts en su etiqueta. Tus {watts_etiqueta} W sugieren un transformador ineficiente que desperdicia energía en forma de calor.")
+                st.warning(f"🌐 **{info_aparato}:** Un módem no debería superar los 15-20 Watts. Tus {watts_etiqueta} W sugieren ineficiencia térmica.")
             else:
-                st.info(f"🌐 **{info_aparato}:** Carga permanente pequeña ({watts_etiqueta} W). Aunque es baja potencia, al operar 24/7 (720 horas) acumula un consumo fijo notable.")
+                st.info(f"🌐 **{info_aparato}:** Carga permanente pequeña ({watts_etiqueta} W). Al operar 24/7 acumula un consumo fijo notable.")
 
-        # Consolas de Videojuegos
         elif "xbox" in nombre or "play" in nombre or "consola" in nombre:
             if watts_etiqueta > 150.0:
-                st.warning(
-                    f"🎮 **{info_aparato}:** Potencia de procesamiento alta ({watts_etiqueta} W). "
-                    f"A nivel normativo, asegúrate de activar el apagado automático. Si se queda encendida sin usarse, destruye la eficiencia del hogar."
-                )
+                st.warning(f"🎮 **{info_aparato}:** Potencia alta ({watts_etiqueta} W). Asegúrate de activar el apagado automático.")
             else:
                 st.success(f"🎮 **{info_aparato}:** Potencia controlada de {watts_etiqueta} W.")
 
-        # Aparatos térmicos de cocina (Microondas, Air Fryer, Hornos)
         elif "microondas" in nombre or "air fryer" in nombre or "horno" in nombre:
-            st.warning(
-                f"🍳 **{info_aparato}:** Posee una potencia masiva de **{watts_etiqueta} W**. "
-                f"Al ser una carga resistiva pura de alto impacto, el secreto de su ahorro no es modificar el aparato, "
-                f"sino mitigar estrictamente el tiempo de uso diario."
-            )
+            st.warning(f"🍳 **{info_aparato}:** Posee una potencia masiva de **{watts_etiqueta} W**. Mitigue estrictamente el tiempo de uso diario.")
 
-        # Cuidado personal (Secadores y Planchas)
         elif "secador" in nombre or "plancha" in nombre:
             if watts_etiqueta > 1200.0:
-                st.warning(
-                    f"💇 **{info_aparato}:** Alerta de alta demanda de potencia instantánea ({watts_etiqueta} W). "
-                    f"Evita encender este aparato al mismo tiempo que la Air Fryer o el microondas para no disparar las protecciones del tablero eléctrico."
-                )
+                st.warning(f"💇 **{info_aparato}:** Alta demanda instantánea ({watts_etiqueta} W). Evita encenderlo junto a otros equipos de cocina.")
 
-        # Iluminación
         elif "lampara" in nombre or "led" in nombre or "bombill" in nombre:
             if watts_etiqueta > 25.0:
-                st.error(f"💡 **{info_aparato}:** Una potencia de {watts_etiqueta} W es excesiva para tecnología LED actual. Podría tratarse de iluminación halógena o incandescente antigua. ¡Sustitúyela!")
+                st.error(f"💡 **{info_aparato}:** {watts_etiqueta} W es excesivo para tecnología LED actual. ¡Sustitúyela!")
             else:
-                st.success(f"💡 **{info_aparato}:** Excelente potencia lumínica de {watts_etiqueta} W. Uso óptimo de tecnología LED.")
+                st.success(f"💡 **{info_aparato}:** Excelente potencia lumínica de {watts_etiqueta} W.")
 
-        # Computadores
         elif "computador" in nombre or "portátil" in nombre or "portatil" in nombre:
             if watts_etiqueta > 250.0:
-                st.warning(f"💻 **{info_aparato}:** Tu fuente de poder de {watts_etiqueta} W corresponde a un equipo Gaming o de diseño pesado. Configura perfiles de ahorro de energía en el software.")
+                st.warning(f"💻 **{info_aparato}:** Fuente de {watts_etiqueta} W corresponde a un equipo Gaming o pesado. Configure perfiles de ahorro.")
             else:
                 st.success(f"💻 **{info_aparato}:** Potencia de operación estándar ({watts_etiqueta} W).")
 
-        # Lavadoras
         elif "lavadora" in nombre:
             if watts_etiqueta > 500.0:
-                st.error(f"🧺 **{info_aparato}:** Los {watts_etiqueta} W nominales indican que el motor realiza un esfuerzo considerable o usa agua caliente. Lava siempre con agua fría para desactivar las resistencias internas.")
+                st.error(f"🧺 **{info_aparato}:** Los {watts_etiqueta} W indican alto esfuerzo o uso de agua caliente. Lava con agua fría.")
             else:
-                st.success(f"🧺 **{info_aparato}:** Consumo del motor de {watts_etiqueta} W dentro del estándar verde.")
-
-        # Por defecto
+                st.success(f"🧺 **{info_aparato}:** Consumo del motor dentro del estándar verde.")
         else:
-            st.info(f"✅ **{info_aparato}:** Potencia de {watts_etiqueta} W analizada y registrada en la base de datos.")
+            st.info(f"✅ **{info_aparato}:** Potencia de {watts_etiqueta} W analizada y registrada.")
 
     if st.button("🗑️ Limpiar todas las proyecciones"):
         st.session_state.dispositivos = []
