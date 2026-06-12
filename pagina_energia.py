@@ -147,7 +147,8 @@ if st.session_state.dispositivos:
     with col_m2:
         st.metric(label="💰 Costo Total Estimado en Factura", value=f"{total_dinero:,.0f} COP")
     
-    st.write("### 🧠 Diagnóstico e Indicadores de Eficiencia")
+    # --- CAMBIO DE TÍTULO SOLICITADO ---
+    st.write("### 🧠 Diagnóstico de Eficiencia y Auditoría de Consumo")
     
     ranking = df.sort_values(by="Consumo Mensual (kWh)", ascending=False)
     
@@ -155,10 +156,11 @@ if st.session_state.dispositivos:
         nombre = fila["Dispositivo"].lower()
         kwh_calculado = fila["Consumo Mensual (kWh)"]
         watts_etiqueta = fila["Potencia Etiqueta (W)"]
+        horas_digitadas = fila["Horas/Mes"]
         ubicacion = fila["Zona"]
         info_aparato = f"**{fila['Dispositivo']} ({fila['Marca']})** en **{ubicacion}**"
         
-        # Filtro de Seguridad Global
+        # 1. FILTRO DE SEGURIDAD GLOBAL
         if kwh_calculado >= 250.0:
             st.error(
                 f"🚨 **Alerta de Sobrecarga Teórica en {info_aparato}:** "
@@ -167,65 +169,120 @@ if st.session_state.dispositivos:
             )
             continue
 
-        # Alertas Basadas en Potencia
-        if "nevera" in nombre or "nevecon" in nombre:
-            if watts_etiqueta > 350.0:
-                st.error(f"❄️ **{info_aparato}:** La potencia de etiqueta ({watts_etiqueta} W) es alta para estándares modernos. Se recomienda verificar tecnología Inverter, reemplazar el dispositivo o no abrir seguida la puerta ya que puede incrementar el gasto eléctrico mensual entre un 10 % y un 20 %.")
-            else:
-                st.success(f"❄️ **{info_aparato}:** Potencia nominal balanceada de {watts_etiqueta} W.")
+        # 2. DETALLE ULTRA-ESPECÍFICO POR DISPOSITIVO (CON AUDITORÍA DE USO NUEVA)
+        with st.expander(f"🔍 Análisis Detallado: {fila['Dispositivo']} — {kwh_calculado:.1f} kWh/mes", expanded=True):
+            
+            # --- NEVERAS Y NEVECONES ---
+            if "nevera" in nombre or "nevecon" in nombre:
+                if watts_etiqueta > 350.0:
+                    st.error(f"❌ **Evaluación de Potencia:** {watts_etiqueta} W es críticamente alto. Indica que el motor no es de alta eficiencia.")
+                else:
+                    st.success(f"✅ **Evaluación de Potencia:** {watts_etiqueta} W está en el rango verde para tecnologías eficientes.")
                 
-        elif "internet" in nombre or "router" in nombre or "modem" in nombre:
-            if watts_etiqueta > 30.0:
-                st.warning(f"🌐 **{info_aparato}:** Un módem no debería superar los 15-20 Watts. Tus {watts_etiqueta} W sugieren ineficiencia térmica.")
+                st.markdown(f"""
+                * **⚠️ Derroche Evitable:** Guardar alimentos calientes o tener los empaques dañados obliga al compresor a trabajar un **20% más**. Esto representa un consumo innecesario de aproximadamente **{(kwh_calculado * 0.20):.2f} kWh/mes** (~{((kwh_calculado * 0.20) * PRECIO_KWH_COP):,.0f} COP desperdiciados).
+                * **Dato Curioso:** Cada vez que abres la puerta de la nevera por 10 segundos, se pierde hasta el 30% del aire frío acumulado, requiriendo energía extra para estabilizarse.
+                * **Recomendación:** Separa la nevera al menos 15 cm de la pared para facilitar la ventilación del condensador.
+                """)
+                    
+            # --- ROUTERS Y MÓDEMS ---
+            elif "internet" in nombre or "router" in nombre or "modem" in nombre:
+                st.info(f"⚡ **Evaluación de Potencia:** Operación permanente estándar.")
+                
+                st.markdown(f"""
+                * **⚠️ Derroche Evitable:** Dejar el módem encendido durante madrugadas o jornadas laborales ausentes (ej. 12 horas muertas al día) desperdicia el **50% de su energía**. Apagarlo en esos lapsos te ahorraría **{(kwh_calculado * 0.50):.2f} kWh/mes** (~{((kwh_calculado * 0.50) * PRECIO_KWH_COP):,.0f} COP).
+                * **Dato Curioso:** Aunque consume poca potencia, al operar 720 horas continuas al mes se convierte en un peso invisible pero fijo en la base de la factura.
+                * **Recomendación:** Desconéctalo por completo cuando salgas de viaje los fines de semana.
+                """)
+
+            # --- CONSOLAS DE VIDEOJUEGOS ---
+            elif "xbox" in nombre or "play" in nombre or "consola" in nombre:
+                st.success(f"🎮 **Evaluación de Potencia:** {watts_etiqueta} W bajo análisis de carga variable.")
+                
+                st.markdown(f"""
+                * **⚠️ Derroche Evitable:** El modo "Inicio Rápido" o reposo mal configurado mantiene la consola consumiendo hasta 40W sin que juegues. Si pasa 20 horas al día en este estado latente, gasta de más **24.0 kWh/mes** (~20,400 COP adicionales por descuido).
+                * **Dato Curioso:** Una consola descargando actualizaciones en modo reposo ineficiente gasta casi la misma energía que ejecutando un juego simple.
+                * **Recomendación:** Activa el modo de ahorro de energía estricto en los ajustes del sistema para que baje a menos de 1W en espera.
+                """)
+
+            # --- COCINA DE ALTA POTENCIA (Air Fryer, Microondas, Hornos) ---
+            elif "microondas" in nombre or "air fryer" in nombre or "horno" in nombre:
+                st.warning(f"🔥 **Carga Térmica Pesada:** Alta absorción de corriente instantánea.")
+                
+                st.markdown(f"""
+                * **⚠️ Derroche Evitable:** Precalentar la Air Fryer de más o abrir constantemente la bandeja durante la cocción disipa el calor bruscamente. Cada apertura prolongada puede alargar la cocción un **15%**, sumando un gasto evitable de **{(kwh_calculado * 0.15):.2f} kWh/mes** por cada ciclo alterado.
+                * **Dato Curioso:** La resistencia de estos aparatos gasta en 10 minutos lo equivalente a usar una TV por más de 3 horas.
+                * **Recomendación:** Reduce el uso limpiando los residuos de grasa internos, ya que actúan como un aislante térmico defectuoso.
+                """)
+
+            # --- CUIDADO PERSONAL (Secadores y Planchas) ---
+            elif "secador" in nombre or "plancha" in nombre:
+                st.warning(f"⚠️ **Demanda Instantánea Alta:** Resistencia pura de alto consumo.")
+                
+                st.markdown(f"""
+                * **⚠️ Derroche Evitable:** Dejar la plancha de pelo encendida sobre la mesa mientras haces otra actividad por solo 15 minutos innecesarios al día genera un derroche directo de aproximadamente **4.5 kWh/mes** (~3,825 COP individuales).
+                * **Dato Curioso:** Las planchas consumen su pico máximo al calentar desde cero; mantenerlas calientes consume menos energía que apagarlas y volverlas a calentar de inmediato.
+                * **Recomendación:** Segmenta bien tus tareas y utilízala solo cuando estés listo para el procedimiento de forma continua.
+                """)
+
+            # --- ILUMINACIÓN (Lámparas, LED, Bombillos) ---
+            elif "lampara" in nombre or "led" in nombre or "bombill" in nombre:
+                if watts_etiqueta > 25.0:
+                    st.error(f"❌ **Alerta de Ineficiencia:** Potencia excesiva para iluminación habitacional moderna.")
+                else:
+                    st.success(f"✅ **Luminaria Eficiente:** Consumo adecuado de baja potencia.")
+                
+                st.markdown(f"""
+                * **⚠️ Derroche Evitable:** Dejar encendido un set de bombillas por olvido en habitaciones vacías durante 5 horas al día representa un consumo extra de **{(kwh_calculado * 0.30):.2f} kWh/mes** que desaparece apagando el interruptor.
+                * **Dato Curioso:** Reemplazar un bombillo antiguo incandescente por uno LED reduce la demanda en un **85%** manteniendo el mismo nivel de iluminación.
+                * **Recomendación:** Aprovecha al máximo la luz natural y limpia las cubiertas de los bombillos para no bloquear los lúmenes de salida.
+                """)
+
+            # --- COMPUTADORES Y PORTÁTILES ---
+            elif "computador" in nombre or "portátil" in nombre or "portatil" in nombre:
+                st.success(f"💻 **Procesamiento Registrado:** Parámetros dentro del estándar.")
+                
+                st.markdown(f"""
+                * **⚠️ Derroche Evitable:** Configurar la pantalla al 100% de brillo y dejar protectores de pantalla animados en vez de suspender el equipo, incrementa el gasto un **25%**. En un equipo de escritorio esto puede representar **{(kwh_calculado * 0.25):.2f} kWh/mes** de consumo fantasma.
+                * **Dato Curioso:** Un computador portátil consume hasta un 70% menos que uno de escritorio debido a la arquitectura optimizada de sus microprocesadores.
+                * **Recomendación:** Activa la suspensión automática a los 5 minutos de inactividad.
+                """)
+
+            # --- LAVADORAS ---
+            elif "lavadora" in nombre:
+                st.info(f"🧺 **Carga Inductiva:** Consumo supeditado al torque mecánico.")
+                
+                st.markdown(f"""
+                * **⚠️ Derroche Evitable:** Utilizar agua caliente en los ciclos de lavado dispara el consumo un **90%**, debido a las resistencias de calentamiento internas. Lavar con agua caliente añade innecesariamente hasta **15.0 kWh/mes** adicionales por carga semanal.
+                * **Dato Curioso:** El motor encargado de girar el tambor solo usa el 10% de la energía de la lavadora; la gran pérdida económica está en la temperatura del agua.
+                * **Recomendación:** Configura siempre programas en agua fría y utiliza la capacidad máxima de llenado sugerida.
+                """)
+
+            # --- CARGADORES ---
+            elif "cargador" in nombre:
+                st.info(f"🔌 **Consumo Vampiro:** Carga residual pasiva.")
+                
+                st.markdown(f"""
+                * **⚠️ Derroche Evitable:** Dejar el cargador pegado a la toma sin conectar el celular consume cerca de 0.5W permanentes. Mantenerlo así todo el mes causa un gasto acumulado fantasma que, sumado por varios cargadores en el hogar, puede agregar **1.5 kWh/mes** directos a la factura por desatención.
+                * **Dato Curioso:** A este fenómeno los ingenieros eléctricos lo denominan "energía de reposo" o "no-carga".
+                * **Recomendación:** Retira el adaptador de la pared tan pronto finalice el ciclo de carga.
+                """)
+
+            # --- POR DEFECTO ---
             else:
-                st.info(f"🌐 **{info_aparato}:** Carga permanente pequeña ({watts_etiqueta} W). Al operar 24/7 acumula un consumo fijo notable.")
+                st.info(f"✅ **Registro Exitoso:** Datos de potencia analizados y procesados.")
 
-        elif "xbox" in nombre or "play" in nombre or "consola" in nombre:
-            if watts_etiqueta > 150.0:
-                st.warning(f"🎮 **{info_aparato}:** Potencia alta ({watts_etiqueta} W). Asegúrate de activar el apagado automático.")
-            else:
-                st.success(f"🎮 **{info_aparato}:** Potencia controlada de {watts_etiqueta} W.")
-
-        elif "microondas" in nombre or "air fryer" in nombre or "horno" in nombre:
-            st.warning(f"🍳 **{info_aparato}:** Posee una potencia masiva de **{watts_etiqueta} W**. Mitigue estrictamente el tiempo de uso diario.")
-
-        elif "secador" in nombre or "plancha" in nombre:
-            if watts_etiqueta > 1200.0:
-                st.warning(f"💇 **{info_aparato}:** Alta demanda instantánea ({watts_etiqueta} W). Evita utilizarlo a la maxima temperatura.")
-
-        elif "lampara" in nombre or "led" in nombre or "bombill" in nombre:
-            if watts_etiqueta > 25.0:
-                st.error(f"💡 **{info_aparato}:** {watts_etiqueta} W es excesivo para tecnología LED actual. ¡Sustitúyela!")
-            else:
-                st.success(f"💡 **{info_aparato}:** Excelente potencia lumínica de {watts_etiqueta} W.")
-
-        elif "computador" in nombre or "portátil" in nombre or "portatil" in nombre:
-            if watts_etiqueta > 250.0:
-                st.warning(f"💻 **{info_aparato}:** Fuente de {watts_etiqueta} W corresponde a un equipo Gaming o pesado. Configure perfiles de ahorro y reduccion del tiempo de uso.")
-            else:
-                st.success(f"💻 **{info_aparato}:** Potencia de operación estándar ({watts_etiqueta} W).")
-
-        elif "lavadora" in nombre:
-            if watts_etiqueta > 500.0:
-                st.error(f"🧺 **{info_aparato}:** Los {watts_etiqueta} W indican alto esfuerzo o uso de agua caliente. Lava con agua fría, y trata de hacer una sola lavada grande")
-            else:
-                st.success(f"🧺 **{info_aparato}:** Consumo del motor dentro del estándar verde.")
-        else:
-            st.info(f"✅ **{info_aparato}:** Potencia de {watts_etiqueta} W analizada y registrada.")
-
-    # --- NUEVA SECCIÓN: GUÍA DE AHORRO ENERGÉTICO PERSONALIZADA ---
+    # --- GUÍA DE AHORRO ENERGÉTICO PERSONALIZADA ---
     st.write("---")
     st.write("### 📉 Guía de Ahorro y Plan de Mitigación Personalizado")
     st.write("Basado en tu inventario actual, este es el plan de acción prioritario para reducir el costo de tu factura:")
 
-    # Identificar el mayor consumidor del inventario para dar un consejo dinámico
     mayor_dispositivo = ranking.iloc[0]["Dispositivo"]
     mayor_consumo_kwh = ranking.iloc[0]["Consumo Mensual (kWh)"]
     mayor_costo = ranking.iloc[0]["Costo Mensual (COP)"]
 
     st.info(f"🎯 **Tu prioridad número 1 es:** el/la **{mayor_dispositivo}**, ya que representa un consumo de **{mayor_consumo_kwh:.2f} kWh/mes** (~ {mayor_costo:,.0f} COP). Atacar el uso de este aparato tendrá el mayor impacto financiero.")
 
-    # Pestañas de la guía estructuradas por tipo de carga
     tab1, tab2, tab3 = st.tabs(["🔥 Cargas Térmicas (Alto Impacto)", "🕒 Cargas Fantasma e Iluminación", "📊 Metas de Reducción"])
 
     with tab1:
@@ -265,7 +322,7 @@ else:
 
 # --- SECCIÓN DE RECOMENDACIONES GENERALES ---
 st.write("---")
-st.write("### 📌 Definicion de Conceptos Clave ")
+st.write("### 📌 Conceptos Clave de Ingeniería Eléctrica Explicados")
 col_g1, col_g2 = st.columns(2)
 
 with col_g1:
