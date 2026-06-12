@@ -99,19 +99,17 @@ if enviado and dispositivo:
     if potencia_marcada > 0 and uso_mes > 0:
         
         nombre_min = dispositivo.lower()
-        factor_utilizacion = 1.0  # Por defecto cargas resistivas/iluminación puras
+        factor_utilizacion = 1.0  
         
         if "nevera" in nombre_min or "nevecon" in nombre_min:
             factor_utilizacion = 0.40  
         elif "televisor" in nombre_min or "tv" in nombre_min:
             factor_utilizacion = 0.70  
-        # --- CORRECCIÓN AQUÍ: Se eliminó 'pointer_min' y se limpió la sintaxis ---
         elif "computador" in nombre_min or "portátil" in nombre_min or "portatil" in nombre_min:
             factor_utilizacion = 0.60  
         elif "cargador" in nombre_min:
             factor_utilizacion = 0.25  
 
-        # Fórmula Física Fundamental
         consumo_mensual_kwh = (potencia_marcada / 1000.0) * uso_mes * cantidad * factor_utilizacion
         costo_mensual_cop = consumo_mensual_kwh * PRECIO_KWH_COP
         
@@ -127,7 +125,6 @@ if enviado and dispositivo:
             "Costo Mensual (COP)": round(costo_mensual_cop, 0)
         })
         st.success(f"¡{dispositivo} calculado teóricamente y agregado al inventario!")
-        # Se removió st.rerun() para permitir la visualización del st.success
     else:
         st.warning("Por favor, introduzca una potencia en Watts y horas de uso mayores a cero.")
 
@@ -161,7 +158,7 @@ if st.session_state.dispositivos:
         ubicacion = fila["Zona"]
         info_aparato = f"**{fila['Dispositivo']} ({fila['Marca']})** en **{ubicacion}**"
         
-        # 1. FILTRO DE SEGURIDAD GLOBAL
+        # Filtro de Seguridad Global
         if kwh_calculado >= 250.0:
             st.error(
                 f"🚨 **Alerta de Sobrecarga Teórica en {info_aparato}:** "
@@ -170,7 +167,7 @@ if st.session_state.dispositivos:
             )
             continue
 
-        # 2. ALERTAS BASADAS EN POTENCIA (W)
+        # Alertas Basadas en Potencia
         if "nevera" in nombre or "nevecon" in nombre:
             if watts_etiqueta > 350.0:
                 st.error(f"❄️ **{info_aparato}:** La potencia de etiqueta ({watts_etiqueta} W) es alta para estándares modernos. Se recomienda verificar tecnología Inverter.")
@@ -215,6 +212,50 @@ if st.session_state.dispositivos:
                 st.success(f"🧺 **{info_aparato}:** Consumo del motor dentro del estándar verde.")
         else:
             st.info(f"✅ **{info_aparato}:** Potencia de {watts_etiqueta} W analizada y registrada.")
+
+    # --- NUEVA SECCIÓN: GUÍA DE AHORRO ENERGÉTICO PERSONALIZADA ---
+    st.write("---")
+    st.write("### 📉 Guía de Ahorro y Plan de Mitigación Personalizado")
+    st.write("Basado en tu inventario actual, este es el plan de acción prioritario para reducir el costo de tu factura:")
+
+    # Identificar el mayor consumidor del inventario para dar un consejo dinámico
+    mayor_dispositivo = ranking.iloc[0]["Dispositivo"]
+    mayor_consumo_kwh = ranking.iloc[0]["Consumo Mensual (kWh)"]
+    mayor_costo = ranking.iloc[0]["Costo Mensual (COP)"]
+
+    st.info(f"🎯 **Tu prioridad número 1 es:** el/la **{mayor_dispositivo}**, ya que representa un consumo de **{mayor_consumo_kwh:.2f} kWh/mes** (~ {mayor_costo:,.0f} COP). Atacar el uso de este aparato tendrá el mayor impacto financiero.")
+
+    # Pestañas de la guía estructuradas por tipo de carga
+    tab1, tab2, tab3 = st.tabs(["🔥 Cargas Térmicas (Alto Impacto)", "🕒 Cargas Fantasma e Iluminación", "📊 Metas de Reducción"])
+
+    with tab1:
+        st.markdown("#### Estrategias para Electrodomésticos de Alto Consumo")
+        st.markdown("""
+        * **Air Fryer y Microondas:** Reducir tan solo **10 minutos diarios** de uso en aparatos de 1500W genera un ahorro directo aproximado de **7.5 kWh al mes** (~6,300 COP).
+        * **Neveras y Refrigeración:** Asegúrate de que los empaques magnéticos de las puertas sellen herméticamente. Separar la nevera al menos 15 cm de la pared reduce el esfuerzo del compresor hasta en un **15%**.
+        * **Planchas y Secadores:** Evita usarlos de manera intermitente. El mayor consumo ocurre mientras la resistencia se calienta desde cero; planchar toda la ropa en una sola sesión es mucho más eficiente.
+        """)
+
+    with tab2:
+        st.markdown("#### Control de Consumos Silenciosos")
+        st.markdown("""
+        * **Vampiros Eléctricos:** Los cargadores conectados sin dispositivo y los modos 'Stand-By' de consolas y TVs devoran energía las 24 horas del día. Usar un multitoma con interruptor para apagarlos por completo por las noches puede reducir hasta un **5% de la factura total**.
+        * **Módems y Routers:** Aunque consumen poca potencia (~12W), operan 720 horas al mes de forma lineal. Si tu hogar pasa periodos largos sin habitar (ej. viajes), desconectarlo es mandatorio.
+        """)
+
+    with tab3:
+        st.markdown("#### Simulación de Metas (¿Cuánto podrías ahorrar?)")
+        porcentaje_ahorro = st.slider("Selecciona un porcentaje de reducción de tiempo de uso diario:", 5, 30, 15, step=5, help="Simula qué pasaría si optimizas el tiempo de uso de tus aparatos.")
+        
+        ahorro_kwh = total_consumo * (porcentaje_ahorro / 100.0)
+        ahorro_cop = total_dinero * (porcentaje_ahorro / 100.0)
+        nuevo_total = total_dinero - ahorro_cop
+
+        col_a1, col_a2 = st.columns(2)
+        with col_a1:
+            st.metric(label=f"📉 Ahorro Estimado ({porcentaje_ahorro}%)", value=f"- {ahorro_kwh:.2f} kWh", delta=f"- {ahorro_cop:,.0f} COP")
+        with col_a2:
+            st.metric(label="💰 Nueva Factura Proyectada", value=f"{nuevo_total:,.0f} COP")
 
     if st.button("🗑️ Limpiar todas las proyecciones"):
         st.session_state.dispositivos = []
