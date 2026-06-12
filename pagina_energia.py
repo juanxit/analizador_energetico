@@ -4,12 +4,13 @@ import pandas as pd
 # Configuración de la página
 st.set_page_config(page_title="Analizador Energético", layout="wide")
 
-# --- VARIABLE DE PRECIO COLOMBIA ---
+# --- VARIABLE DE PRECIO COLOMBIA (Tarifa promedio aproximada) ---
 PRECIO_KWH_COP = 850
 
-st.title("⚡ Analizador Energético Residencial con Vatímetro (Colombia)")
+st.title("⚡ Analizador Energético Residencial por Potencia (Académico)")
 st.write(
-    f"Registre los kWh medidos con su vatímetro y las horas totales que el aparato permanece encendido al mes para proyectar el consumo real. (Tarifa: **{PRECIO_KWH_COP} COP / kWh**)."
+    f"Herramienta de proyección basada en la **Potencia Nominal (Watts)** de la etiqueta del dispositivo "
+    f"y las horas de uso estimadas al mes. (Tarifa calculada a: **{PRECIO_KWH_COP} COP / kWh**)."
 )
 
 # Inicializar almacenamiento en la sesión
@@ -18,9 +19,9 @@ if "dispositivos" not in st.session_state:
 
 # --- DICCIONARIO DE DISPOSITIVOS Y SUS MARCAS ---
 mapeo_dispositivos_marcas = {
-    "Lampara LED de techo": ["No reconocida", "Otro (Escribir manualmente)"],
+    "Lampara LED de techo": ["Philips", "Osram", "Otro (Escribir manualmente)"],
     "Cargador celular/dispositivos": ["Honor x8b", "IPhone 16e", "Samsung", "No reconocida", "Otro (Escribir manualmente)"],
-    "portátil": ["LENOVO", "Otro (Escribir manualmente)"],
+    "portátil": ["LENOVO","Hp", "Asus","Dell","Otro (Escribir manualmente)"],
     "Tirilla LED": ["No reconocida", "Otro (Escribir manualmente)"],
     "Secador": ["Remington", "Otro (Escribir manualmente)"],
     "Plancha pelo": ["Remington", "Otro (Escribir manualmente)"],
@@ -46,7 +47,7 @@ mapeo_dispositivos_marcas = {
 
 opciones_dispositivos = list(mapeo_dispositivos_marcas.keys())
 
-# --- FORMULARIO DE INGRESO DIRECTO DE MEDICIÓN ---
+# --- FORMULARIO DE INGRESO ---
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -64,63 +65,78 @@ with col1:
         marca = marca_seleccionada
     
 with col2:
-    kwh_soltados = st.number_input(
-        "Dato Vatímetro (kWh)",
+    # Solicitud estricta de la potencia de etiqueta requerida por el profesor
+    potencia_marcada = st.number_input(
+        "Potencia de la Etiqueta (Watts)",
         min_value=0.0,
-        step=0.001,
-        format="%.4f",
-        help="Digite el consumo en kWh acumulado que marcó el vatímetro al terminar de medir el aparato."
+        step=1.0,
+        format="%.1f",
+        help="Digite los Watts (W) que vienen impresos en la placa o etiqueta técnica del aparato."
     )
     
 with col3:
-    # Cambiado estrictamente a Horas de uso al mes
     uso_mes = st.number_input(
-        "Horas de uso al mes",
+        "Horas de conexión/uso al mes",
         min_value=0.0,
         step=1.0,
-        help="Escriba cuántas horas en TOTAL al mes permanece encendido o en uso este aparato."
+        help="¿Cuántas horas aproximadas en total al mes está el aparato encendido o conectado?"
     )
     
     cantidad = st.number_input(
-        "Cantidad de estos mismos aparatos",
+        "Cantidad de aparatos iguales",
         min_value=1,
         step=1
     )
     
     zona = st.selectbox(
-        "Ubicación de la casa", 
+        "Ubicación en el Hogar", 
         ["Habitación 1", "Habitación 2", "Habitación 3", "Sala", "Cocina", "Patio", "Baño", "General"]
     )
     
-    enviado = st.button("➕ Calcular y Agregar Proyección")
+    enviado = st.button("➕ Calcular mediante Watts")
 
-# --- LÓGICA MATEMÁTICA DIRECTA ---
+# --- LÓGICA DE INGENIERÍA ELÉCTRICA (POTENCIA NOMINAL Y FACTOR DE UTILIZACIÓN) ---
 if enviado and dispositivo:
-    if kwh_soltados > 0 and uso_mes > 0:
-        # Operación física: kWh medidos durante el periodo de prueba × horas de uso al mes × cantidad
-        consumo_mensual_kwh = kwh_soltados * uso_mes * cantidad
+    if potencia_marcada > 0 and uso_mes > 0:
+        
+        # FACTOR DE UTILIZACIÓN MODERADO (Evita que la nevera o TV simulen un consumo falso del 100% todo el tiempo)
+        nombre_min = dispositivo.lower()
+        factor_utilizacion = 1.0  # Por defecto consumen lo que dice la etiqueta (planchas, resistencias, bombillos)
+        
+        if "nevera" in nombre_min or "nevecon" in nombre_min:
+            factor_utilizacion = 0.40  # Una nevera real solo tiene el compresor activo el 40% del tiempo conectado
+        elif "televisor" in nombre_min or "tv" in nombre_min:
+            factor_utilizacion = 0.70  # Los televisores rara vez operan al brillo máximo de etiqueta
+        elif "computador" in nombre_min or "portátil" in pointer_min if "portátil" in nombre_min or "portatil" in nombre_min:
+            factor_utilizacion = 0.60  # Consumo variable según el procesamiento
+        elif "cargador" in nombre_min:
+            factor_utilizacion = 0.25  # Un cargador conectado sin celular consume casi 0 (consumo vampiro)
+
+        # Fórmula Física Fundamental: Energía (kWh) = (Potencia(W) / 1000) * Horas * Cantidad * Factor
+        consumo_mensual_kwh = (potencia_marcada / 1000.0) * uso_mes * cantidad * factor_utilizacion
         costo_mensual_cop = consumo_mensual_kwh * PRECIO_KWH_COP
         
         st.session_state.dispositivos.append({
             "Dispositivo": dispositivo,
             "Marca": marca,
-            "kWh Medidos": kwh_soltados,
+            "Potencia Etiqueta (W)": potencia_marcada,
+            "Factor de Uso Aplicado": factor_utilizacion,
             "Horas/Mes": uso_mes,
             "Cantidad": cantidad,
             "Zona": zona,
             "Consumo Mensual (kWh)": round(consumo_mensual_kwh, 4),
             "Costo Mensual (COP)": round(costo_mensual_cop, 0)
         })
-        st.success(f"¡{dispositivo} proyectado y agregado exitosamente!")
+        st.success(f"¡{dispositivo} calculado teóricamente y agregado al inventario!")
         st.rerun()
     else:
-        st.warning("Por favor, introduzca un valor de kWh y las horas de uso mayores a cero.")
+        st.warning("Por favor, introduzca una potencia en Watts y horas de uso mayores a cero.")
 
 # --- SECCIÓN DE RESULTADOS ---
 if st.session_state.dispositivos:
     df = pd.DataFrame(st.session_state.dispositivos)
     
-    st.write("### 📋 Proyección Mensual Basada en Mediciones Directas")
+    st.write("### 📋 Tabla de Cargas y Consumos Teóricos")
     
     df_visual = df.copy()
     df_visual["Costo Mensual (COP)"] = df_visual["Costo Mensual (COP)"].apply(lambda x: f"{x:,.0f} COP")
@@ -131,11 +147,11 @@ if st.session_state.dispositivos:
     
     col_m1, col_m2 = st.columns(2)
     with col_m1:
-        st.metric(label="🔌 Consumo Total Proyectado al Mes", value=f"{total_consumo:.2f} kWh")
+        st.metric(label="🔌 Energía Total Demandada al Mes", value=f"{total_consumo:.2f} kWh")
     with col_m2:
         st.metric(label="💰 Costo Total Estimado en Factura", value=f"{total_dinero:,.0f} COP")
     
-    st.write("### 🧠 Diagnóstico y Análisis de la Eficiencia ")
+    st.write("### 🧠 Diagnóstico del Profesor e Indicadores de Eficiencia")
     
     ranking = df.sort_values(by="Consumo Mensual (kWh)", ascending=False)
     
@@ -144,156 +160,106 @@ if st.session_state.dispositivos:
         kwh_calculado = fila["Consumo Mensual (kWh)"]
         costo_calculado = fila["Costo Mensual (COP)"]
         horas_digitadas = fila["Horas/Mes"]
+        watts_etiqueta = fila["Potencia Etiqueta (W)"]
         ubicacion = fila["Zona"]
         info_aparato = f"**{fila['Dispositivo']} ({fila['Marca']})** en **{ubicacion}**"
         
-        # 1. FILTRO DE SEGURIDAD GLOBAL (Por si se digitan Watts en lugar de kWh por error)
-        if kwh_calculado >= 176.0:
+        # 1. FILTRO DE SEGURIDAD GLOBAL
+        if kwh_calculado >= 250.0:
             st.error(
-                f"🚨 **Alerta Crítica - Consumo Fuera de Rango en {info_aparato}:** "
-                f"La proyección arroja {kwh_calculado:.2f} kWh al mes ({costo_calculado:,.0f} COP). "
-                f"Esto es demasiado alto para una residencia. Por favor, verifica que el 'Dato Vatímetro (kWh)' "
-                f"corresponda a la energía acumulada y no a la potencia instantánea en Watts."
+                f"🚨 **Alerta de Sobrecarga Teórica en {info_aparato}:** "
+                f"La potencia de {watts_etiqueta} W multiplicada por las horas arroja un consumo exagerado de {kwh_calculado:.2f} kWh al mes. "
+                f"Verifica si calculaste mal las horas mensuales o si los Watts corresponden a la etiqueta técnica."
             )
             continue
 
-        # 2. ALERTAS DETALLADAS Y PERSONALIZADAS POR DISPOSITIVO
+        # 2. ALERTAS BASADAS EN POTENCIA (W)
         
         # Neveras, Nevecones y Refrigeradores
         if "nevera" in nombre or "nevecon" in nombre:
-            if kwh_calculado > 90.0:
+            if watts_etiqueta > 350.0:
                 st.error(
-                    f"❄️ **{info_aparato}:** Alerta de alto consumo ({kwh_calculado:.2f} kWh/mes). "
-                    f"**Consejo Clave:** Evita abrir la nevera repetidamente o por aburrimiento. Al abrirla, "
-                    f"entra aire caliente del entorno y el compresor se ve obligado a encenderse a máxima potencia para "
-                    f"volver a enfriar, disparando la factura. Revisa que los empaques de goma sellen perfectamente."
+                    f"❄️ **{info_aparato}:** La potencia de etiqueta ({watts_etiqueta} W) es alta para estándares modernos de eficiencia. "
+                    f"Aunque el motor se apaga intermitentemente, cuando arranca exige un pico alto de corriente. "
+                    f"Se recomienda verificar si cuenta con tecnología Inverter."
                 )
             else:
-                st.success(f"❄️ **{info_aparato}:** ¡Buen rendimiento! Registra {kwh_calculado:.2f} kWh/mes ({costo_calculado:,.0f} COP). Mantienes un excelente hábito de uso continuo.")
+                st.success(f"❄️ **{info_aparato}:** Potencia nominal balanceada de {watts_etiqueta} W. Buen comportamiento de la carga inductiva.")
                 
         # Routers, Internet y Módems
         elif "internet" in nombre or "router" in nombre or "modem" in nombre:
-            if horas_digitadas < 720:
-                st.warning(f"🌐 **{info_aparato}:** Ingresaste {horas_digitadas} horas, pero recuerda que el internet en el hogar opera 24/7 (720 horas al mes).")
-            if kwh_calculado > 18.0:
-                st.error(f"🌐 **{info_aparato}:** Consumo elevado para telecomunicaciones. Asegúrate de que el adaptador de corriente no se esté recalentando por falta de ventilación.")
+            if watts_etiqueta > 30.0:
+                st.warning(f"🌐 **{info_aparato}:** Un módem no debería superar los 15-20 Watts en su etiqueta. Tus {watts_etiqueta} W sugieren un transformador ineficiente que desperdicia energía en forma de calor.")
             else:
-                st.info(f"🌐 **{info_aparato}:** Consumo base saludable de {kwh_calculado:.2f} kWh al mes. Es un gasto fijo necesario para el hogar.")
+                st.info(f"🌐 **{info_aparato}:** Carga permanente pequeña ({watts_etiqueta} W). Aunque es baja potencia, al operar 24/7 (720 horas) acumula un consumo fijo notable.")
 
-        # Consolas de Videojuegos (Xbox, Play 5) y Controles
-        elif "xbox" in nombre or "play" in nombre or "consola" in nombre or "control" in nombre:
-            if kwh_calculado > 25.0:
+        # Consolas de Videojuegos
+        elif "xbox" in nombre or "play" in nombre or "consola" in nombre:
+            if watts_etiqueta > 150.0:
                 st.warning(
-                    f"🎮 **{info_aparato}:** Registra un consumo importante de {kwh_calculado:.2f} kWh/mes ({costo_calculado:,.0f} COP). "
-                    f"**Consejo Clave:** ¡No la dejes en modo reposo o inicio instantáneo! En estos modos de espera, "
-                    f"la consola sigue consumiendo energía las 24 horas del día descargando actualizaciones silenciosas. Apágala por completo."
+                    f"🎮 **{info_aparato}:** Potencia de procesamiento alta ({watts_etiqueta} W). "
+                    f"A nivel normativo, asegúrate de activar el apagado automático. Si se queda encendida sin usarse, destruye la eficiencia del hogar."
                 )
             else:
-                st.success(f"🎮 **{info_aparato}:** Consumo controlado. Tus sesiones de juego y recarga están balanceadas.")
+                st.success(f"🎮 **{info_aparato}:** Potencia controlada de {watts_etiqueta} W.")
 
         # Aparatos térmicos de cocina (Microondas, Air Fryer, Hornos)
         elif "microondas" in nombre or "air fryer" in nombre or "horno" in nombre:
-            if kwh_calculado > 35.0:
-                st.error(
-                    f"🍳 **{info_aparato}:** Consumo mensual excesivo ({kwh_calculado:.2f} kWh / {costo_calculado:,.0f} COP). "
-                    f"**Consejo Clave:** Estos dispositivos usan resistencias de alta potencia que generan calor extremo al instante. "
-                    f"Reducir solo unos minutos de uso por ciclo u optimizar las porciones reduce significativamente el impacto."
-                )
-            else:
-                st.success(f"🍳 **{info_aparato}:** Uso óptimo de {kwh_calculado:.2f} kWh al mes. Los ciclos cortos y eficientes evitan picos de energía.")
+            st.warning(
+                f"🍳 **{info_aparato}:** Posee una potencia masiva de **{watts_etiqueta} W**. "
+                f"Al ser una carga resistiva pura de alto impacto, el secreto de su ahorro no es modificar el aparato, "
+                f"sino mitigar estrictamente el tiempo de uso diario."
+            )
 
-        # Cuidado personal (Secadores y Planchas de pelo o ropa)
+        # Cuidado personal (Secadores y Planchas)
         elif "secador" in nombre or "plancha" in nombre:
-            if kwh_calculado > 15.0:
+            if watts_etiqueta > 1200.0:
                 st.warning(
-                    f"💇 **{info_aparato}:** Cuidado con la acumulación de horas de uso. Proyecta ${costo_calculado:,.0f} COP. "
-                    f"**Consejo Clave:** Debido a que transforman electricidad en calor de forma directa, dejarlos encendidos mientras te peinas "
-                    f"o usarlos por horas largas acumula un gasto enorme. Apágalos inmediatamente termines tu rutina."
+                    f"💇 **{info_aparato}:** Alerta de alta demanda de potencia instantánea ({watts_etiqueta} W). "
+                    f"Evita encender este aparato al mismo tiempo que la Air Fryer o el microondas para no disparar las protecciones del tablero eléctrico."
                 )
-            else:
-                st.success(f"💇 **{info_aparato}:** Uso inteligente. El tiempo de encendido es el adecuado.")
 
-        # Iluminación (Lámparas de techo, paneles, bombillas, tirillas LED)
+        # Iluminación
         elif "lampara" in nombre or "led" in nombre or "bombill" in nombre:
-            if kwh_calculado > 12.0:
-                st.warning(
-                    f"💡 **{info_aparato}:** Consumo elevado de {kwh_calculado:.2f} kWh al mes. "
-                    f"**Consejo Clave:** Aunque la tecnología LED gasta muy pocos vatios por hora, el problema aquí es el exceso de tiempo. "
-                    f"Dejar luces encendidas en espacios donde no hay nadie o durante toda la noche acumula muchas horas e incrementa la factura."
-                )
+            if watts_etiqueta > 25.0:
+                st.error(f"💡 **{info_aparato}:** Una potencia de {watts_etiqueta} W es excesiva para tecnología LED actual. Podría tratarse de iluminación halógena o incandescente antigua. ¡Sustitúyela!")
             else:
-                st.success(f"💡 **{info_aparato}:** ¡Excelente! El consumo de iluminación está bajo control gracias a la tecnología LED.")
+                st.success(f"💡 **{info_aparato}:** Excelente potencia lumínica de {watts_etiqueta} W. Uso óptimo de tecnología LED.")
 
-        # Computadores y Portátiles
+        # Computadores
         elif "computador" in nombre or "portátil" in nombre or "portatil" in nombre:
-            if kwh_calculado > 30.0:
-                st.warning(
-                    f"💻 **{info_aparato}:** Consumo moderado-alto con ${costo_calculado:,.0f} COP. "
-                    f"**Consejo Clave:** Activa la suspensión automática de tu sistema operativo para que el monitor y los componentes "
-                    f"entren en reposo de inmediato cuando te levantes del escritorio. Disminuir un poco el brillo de pantalla también ayuda."
-                )
+            if watts_etiqueta > 250.0:
+                st.warning(f"💻 **{info_aparato}:** Tu fuente de poder de {watts_etiqueta} W corresponde a un equipo Gaming o de diseño pesado. Configura perfiles de ahorro de energía en el software.")
             else:
-                st.success(f"💻 **{info_aparato}:** Operación eficiente para actividades académicas o laborales.")
-
-        # Cargadores de celulares u otros dispositivos
-        elif "cargador" in nombre or "celular" in nombre:
-            if horas_digitadas >= 500:
-                st.warning(
-                    f"🔌 **{info_aparato}:** Alerta de consumo vampiro. "
-                    f"**Consejo Clave:** Dejar el cargador enchufado continuamente a la toma corriente sin tener el teléfono conectado "
-                    f"sigue demandando energía de la red de forma inútil. Acostúmbrate a desconectarlo al retirar tu celular."
-                )
-            else:
-                st.success(f"🔌 **{info_aparato}:** Carga controlada y eficiente.")
-
-        # Licuadoras e Impresoras
-        elif "licuadora" in nombre or "impresora" in nombre:
-            if kwh_calculado > 10.0:
-                st.warning(f"🖨️ **{info_aparato}:** Uso por encima del promedio. Verifica que los equipos queden completamente apagados y no en modo Stand-by.")
-            else:
-                st.success(f"✅ **{info_aparato}:** Gasto mínimo bajo control de {kwh_calculado:.2f} kWh/mes.")
+                st.success(f"💻 **{info_aparato}:** Potencia de operación estándar ({watts_etiqueta} W).")
 
         # Lavadoras
         elif "lavadora" in nombre:
-            if kwh_calculado > 25.0:
-                st.error(f"🧺 **{info_aparato}:** Consumo alto (${costo_calculado:,.0f} COP). Procura realizar únicamente lavadas con carga completa y agua fría para evitar activar las resistencias de calentamiento interno.")
+            if watts_etiqueta > 500.0:
+                st.error(f"🧺 **{info_aparato}:** Los {watts_etiqueta} W nominales indican que el motor realiza un esfuerzo considerable o usa agua caliente. Lava siempre con agua fría para desactivar las resistencias internas.")
             else:
-                st.success(f"🧺 **{info_aparato}:** Ciclos de lavado eficientes y programados.")
+                st.success(f"🧺 **{info_aparato}:** Consumo del motor de {watts_etiqueta} W dentro del estándar verde.")
 
-        # Regla por defecto para cualquier otro dispositivo manual
+        # Por defecto
         else:
-            if kwh_calculado >= 40.0:
-                st.warning(f"🔥 **{info_aparato}:** Identificado como un punto de consumo moderado-alto. Intenta optimizar sus horas de uso mensual.")
-            else:
-                st.success(f"✅ **{info_aparato}:** Consumo verificado y controlado de ${costo_calculado:,.0f} COP al mes.")
+            st.info(f"✅ **{info_aparato}:** Potencia de {watts_etiqueta} W analizada y registrada en la base de datos.")
 
     if st.button("🗑️ Limpiar todas las proyecciones"):
         st.session_state.dispositivos = []
         st.rerun()
 else:
-    st.info("💡 Mida el consumo de un aparato con su vatímetro, digite los kWh acumulados y las horas que se usa en todo el mes.")
+    st.info("💡 Ingrese la potencia en Watts (W) que sacó de la etiqueta trasera del aparato para ejecutar el algoritmo de cálculo.")
 
 # --- SECCIÓN DE RECOMENDACIONES GENERALES ---
 st.write("---")
-st.write("### 📌 Guía General de Ahorro para el Hogar (Colombia)")
-st.write("Hábitos prácticos enfocados en reducir tanto los kilovatios-hora como el costo final de tu factura:")
-
+st.write("### 📌 Conceptos Clave de Ingeniería Eléctrica Explicados")
 col_g1, col_g2 = st.columns(2)
 
 with col_g1:
-    with st.expander("🔌 El Consumo Vampiro (Dispositivos en Espera)", expanded=True):
-        st.markdown("Los cargadores de celular, pantallas de TV apagadas o consolas siguen consumiendo energía silenciosamente si se quedan conectados a la toma de corriente de forma continua.")
-        st.markdown(f"**El impacto medible:** Mantener 4 cargadores enchufados sin usar genera un desperdicio fantasma de **7 kWh al año** (6.000 COP). Si le sumas televisores y consolas en reposo, el gasto innecesario supera los **47 kWh anuales** (40.000 COP al año).")
+    with st.expander("🔌 ¿Por qué usamos la Potencia de la Etiqueta?", expanded=True):
+        st.markdown("**La Potencia Nominal (W):** Es la capacidad instalada. Sirve para calcular las protecciones de la vivienda (Breakers/Tacos).")
+        st.markdown("Multiplicar los Watts de la etiqueta por las horas te da la demanda teórica máxima de energía eléctrica.")
         
-    with st.expander("💡 Optimización de la Iluminación"):
-        st.markdown("Aunque las tirillas LED y bombillas consumen poco de forma individual, al tener muchas unidades encendidas por varias horas el costo final suma en la factura.")
-        st.markdown(f"**El impacto medible:** Cambiar 5 bombillos antiguos por tecnología LED moderna ahorra **25 kWh mensuales**. En Colombia, esto representa un alivio directo de **21.250 COP menos** en cada mes de facturación.")
-
 with col_g2:
-    with st.expander("❄️ Uso Inteligente de la Nevera / Nevecon", expanded=True):
-        st.markdown("Es el único electrodoméstico que nunca descansa en todo el mes y puede llevarse hasta el 30% del costo total de la energía eléctrica de tu hogar.")
-        st.markdown(f"**El impacto medible:** Abrir la nevera por descuido unas 10 veces al día (dejando escapar el aire frío) obliga al motor a re-enfriar con fuerza. Esto añade entre **4 kWh y 6 kWh extras al mes**, obligándote a pagar entre **3.500 COP y 5.100 COP adicionales** mensuales.")
-        
-    with st.expander("🖥️ Gestión de Equipos de Cómputo y Consolas"):
-        st.markdown("Configura tus laptops y consolas en el Modo Ahorro de Energía para que entren en estado de suspensión de forma automática si no estás jugando o trabajando.")
-        st.markdown(f"**El impacto medible:** Dejar una consola en modo de inicio instantáneo gasta corriente fantasma. Al mes, este estado genera un consumo innecesario de **9 kWh**, lo que significa pagar **7.600 COP** en tu factura sin haber jugado un solo minuto.")
+    with st.expander("📉 ¿Qué es el Factor de Utilización?", expanded=True):
+        st.markdown("Los electrodomésticos no consumen su potencia máxima el 100% del tiempo. El software aplica automáticamente un factor de corrección técnico para ajustar la simulación a la realidad de las facturas en Colombia.")
